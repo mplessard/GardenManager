@@ -38,11 +38,14 @@ public class GardenService {
 	@Consumes("application/x-www-form-urlencoded")
 	@Produces(MediaType.TEXT_HTML)
 	public Response postUsers(@FormParam("token") String token, @FormParam("date") String date) throws SQLException{
-		
-		String sql = "INSERT INTO user(token, token_expiration_date) VALUES('" + token + "', date('" + date+ "'))";
-		Database.operationOnTable(sql);
-	
-		return Response.status(200).entity("The user has been created.").build();
+		ResultSet resultSet = Database.tableRequest("SELECT COUNT(*) FROM User WHERE token ='" + token + "'");
+		if(resultSet.next()){
+			Database.operationOnTable("UPDATE User SET token_expiration_date=date('" + date + "') WHERE token='" + token + "'");
+		}else{
+			String sql = "INSERT INTO user(token, token_expiration_date) VALUES('" + token + "', date('" + date+ "'))";
+			Database.operationOnTable(sql);
+		}
+		return Response.status(200).entity("The user has been added.").build();
 	}
 	
 	@SuppressWarnings("unchecked")
@@ -151,7 +154,6 @@ public class GardenService {
 		JSONObject garden = new JSONObject();
 
 		ResultSet resultSet = Database.tableRequest("SELECT G.name, GC.name, address, G.id FROM Garden AS G, GardenCategory AS GC WHERE ID_Category = GC.id AND G.id =" + id);
-		ResultSet resultSet2 = null; // Database.tableRequest("SELECT GR.id, username, task FROM gardenResponsibility AS GR, volunteer AS V WHERE V.id = GR.ID_Volunteer AND ID_Garden =" + id);
 		
 		if (Authentication.authenticationByToken(accessToken)) {
 			if(!resultSet.next()){
@@ -161,21 +163,9 @@ public class GardenService {
 				garden.put("name", resultSet.getString("G.name"));
 				garden.put("category", resultSet.getString("GC.name"));
 				garden.put("address", resultSet.getString("address"));
-//				if(resultSet2 != null && resultSet2.next()){
-//					resultSet2.beforeFirst();
-//					JSONObject idVolunteer = new JSONObject();
-//					JSONObject volunteersAndTask = new JSONObject();
-//					while(resultSet2.next()){
-//						volunteersAndTask.put("username", resultSet2.getString("username"));
-//						volunteersAndTask.put("task", resultSet2.getString("task"));
-//						idVolunteer.put(resultSet2.getInt("GR.id"), volunteersAndTask);
-//						volunteersAndTask = new JSONObject();
-//					}
-//					garden.put("volunteers", idVolunteer);
-//				}
 			}
 			}else{
-				garden.put("error", "Access denied: You are not authorized to add garden.");
+				garden.put("error", "Access denied: You are not authorized to view garden.");
 			}
 		return garden.toJSONString();
 	}
@@ -249,138 +239,6 @@ public class GardenService {
 		} else {
 			responseCode = 401;
 			responseMessage = "Access denied: the access token is invalid.";
-		}
-		return Response.status(responseCode).entity(responseMessage).build();
-	}
-	
-	@Path("gardens/tasks")
-	@POST
-	@Consumes("application/x-www-form-urlencoded")
-	public Response postTasks(@QueryParam("access_token") String accessToken, @FormParam("username") String username, @FormParam("garden") String garden, @FormParam("task") String task) throws SQLException, ClassNotFoundException, InvalidKeyException, NoSuchAlgorithmException, NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException, ParseException{
-		int responseCode = 404;
-		String responseMessage = "The task was not add to the garden";
-		
-		if(Authentication.authenticationByToken(accessToken)){
-			JSONObject decryptedToken = Authentication.getTokenDecrypted(accessToken);
-			
-			if((Integer) decryptedToken.get("role") == 2 || decryptedToken.get("username").equals(username)){
-				if(username != null && username != ""){
-					String sql = "SELECT id FROM Volunteer WHERE username='" + username + "'";
-					ResultSet resultSet = Database.tableRequest(sql);
-					
-					if(resultSet.next()){
-						int volunteerID = resultSet.getInt("id");
-						
-						if(garden != null && garden != ""){
-							sql = "SELECT id FROM Garden WHERE name='" + garden + "'";
-							resultSet = Database.tableRequest(sql);
-							
-							if(resultSet.next()){
-								int gardenID = resultSet.getInt("id");
-								sql = "INSERT INTO GardenResponsibility(ID_Volunteer, ID_Garden, task) VALUES(" + volunteerID + "," + gardenID + ",'" + task + "')";
-								Database.operationOnTable(sql);
-								
-								responseCode = 200;
-								responseMessage = "The task has been created.";
-							}else{
-								responseMessage = "The garden doesn't exist.";
-							}
-						}else{
-							responseMessage = "The garden is not valid.";
-						}
-					}else{
-						responseMessage = "The username doesn't exist.";
-					}
-				}else{
-					responseMessage = "The username is not valid.";
-				}
-			}else{
-				responseMessage = "Access denied you are not authorized to add a task for someone else.";
-			}
-		}else{
-			responseMessage = "Access denied your token is invalid.";
-		}
-		return Response.status(responseCode).entity(responseMessage).build();
-	}
-	
-	@Path("gardens/tasks/{id:[0-9]*}")
-	@DELETE
-	@Produces(MediaType.TEXT_HTML)
-	public Response deleteTasks(@QueryParam("access_token") String accessToken, @PathParam("id") int id) throws SQLException, ClassNotFoundException, InvalidKeyException, NoSuchAlgorithmException, NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException, ParseException{
-		int responseCode = 404;
-		String responseMessage = "The task was not deleted.";
-		
-		if(Authentication.authenticationByToken(accessToken)){
-			JSONObject decryptedToken = Authentication.getTokenDecrypted(accessToken);
-			String sql = "SELECT * FROM GardenResponsibility WHERE id =" + id;
-			ResultSet resultSet = Database.tableRequest(sql);
-			
-			if(resultSet.next()){
-				int volunteerID = resultSet.getInt("ID_Volunteer");
-				
-				if((Integer) decryptedToken.get("role") == 2 || decryptedToken.get("id").equals(volunteerID)){
-					sql = "DELETE FROM GardenResponsibility WHERE id=" + id;
-					Database.operationOnTable(sql);
-					
-					responseCode = 200;
-					responseMessage = "The task has been deleted.";
-				}else{
-					responseMessage = "Access denied you are not authorized to delete a task for someone else.";
-				}
-			}else{
-				responseMessage = "The task doesn't exist.";
-			}
-		}else{
-			responseMessage = "Access denied your token is invalid.";
-		}
-		return Response.status(responseCode).entity(responseMessage).build();
-	}
-	
-	@Path("gardens/tasks/{id:[0-9]*}")
-	@POST
-	@Consumes("application/x-www-form-urlencoded")
-	@Produces(MediaType.TEXT_HTML)
-	public Response updateTasks(@QueryParam("access_token") String accessToken, @PathParam("id") int id, @FormParam("garden") String garden, @FormParam("task") String task) throws SQLException, ClassNotFoundException, InvalidKeyException, NoSuchAlgorithmException, NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException, ParseException{
-		int responseCode = 404;
-		String responseMessage = "The task was not updated.";
-		
-		if(Authentication.authenticationByToken(accessToken)){
-			JSONObject decryptedToken = Authentication.getTokenDecrypted(accessToken);
-			String sql = "SELECT * FROM GardenResponsibility WHERE id =" + id;
-			ResultSet resultSet = Database.tableRequest(sql);
-			
-			if(resultSet.next()){
-				int volunteerID = resultSet.getInt("ID_Volunteer");
-				
-				if((Integer)decryptedToken.get("role") == 2 || decryptedToken.get("id").equals(volunteerID)){
-					garden = garden.replaceAll("'","''");
-					
-					if(garden != null && garden != ""){
-						sql = "SELECT id FROM Garden WHERE name='" + garden + "'";
-						resultSet = Database.tableRequest(sql);
-						
-						if(resultSet.next()){
-							int gardenID = resultSet.getInt("id");
-							sql = "UPDATE GardenResponsibility SET ID_Garden=" + gardenID + ", task='" + task + "' WHERE id=" + id;
-							
-							Database.operationOnTable(sql);
-						
-							responseCode = 200;
-							responseMessage = "The task has been updated.";
-						}else{
-							responseMessage = "There's no garden with this name.";
-						}
-					}else{
-						responseMessage = "The garden's name is invalid.";
-					}
-				}else{
-				responseMessage = "Access denied you are not authorized to delete a task for someone else.";
-				}
-			}else{
-				responseMessage = "The task doesn't exist.";
-			}
-		}else{
-			responseMessage = "Access denied your token is invalid.";
 		}
 		return Response.status(responseCode).entity(responseMessage).build();
 	}
