@@ -50,9 +50,7 @@ public class Database {
 	}
 	
 	public static void databaseRequest(String sql) throws SQLException{
-		Statement statement = null;
-		
-		statement = connection.createStatement();
+		Statement statement = connection.createStatement();
 		statement.executeUpdate(sql);
 		System.out.println("Requete executée!");
 		
@@ -62,9 +60,7 @@ public class Database {
 	}
 	 
 	public static ResultSet tableRequest(String sql) throws SQLException{
-		Statement statement = null;
-		
-		statement = connection.createStatement();
+		Statement statement = connection.createStatement();
 		ResultSet resultSet = statement.executeQuery(sql);
 		
 		return resultSet;

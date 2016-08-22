@@ -1,13 +1,11 @@
 DROP TABLE User;
-DROP TABLE role;
 DROP TABLE Garden;
 DROP TABLE GardenCategory;
 
 CREATE TABLE User(
 	ID integer NOT NULL PRIMARY KEY AUTO_INCREMENT,
 	token varchar(255),
-	token_expiration_date date
-)
+	token_expiration_date date)
 ;
 CREATE TABLE GardenCategory(
 	ID integer NOT NULL PRIMARY KEY AUTO_INCREMENT,
@@ -21,12 +19,6 @@ CREATE TABLE Garden(
 	FOREIGN KEY (ID_category) REFERENCES GardenCategory(ID)
 )
 ;
-
-INSERT INTO Role(name) VALUES("user");
-INSERT INTO Role(name) VALUES("admin");
-
-INSERT INTO Volunteer(username, email, password, role, token, token_expiration_date) VALUES("JohnDoe", "John@Doe.com", "pw", 2, "hj5T_-WpCkLrcJc2K1i_FcWjIoRuub-khV4DAgEQpEcADi5TyZsEwhETgVqud9OE", date("2017-09-01"));
-
 INSERT INTO GardenCategory(name) VALUES("Prairie Mellifere");
 INSERT INTO GardenCategory(name) VALUES("Serre");
 INSERT INTO GardenCategory(name) VALUES("Potager collectif");
